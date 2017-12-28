@@ -1,4 +1,4 @@
-## [Using GPUs](Using GPUs)
+## [Using GPUs](https://www.tensorflow.org/tutorials/using_gpu)
 
 ### Supported devices 设备支持
 
@@ -130,7 +130,7 @@ print(sess.run(c))
 
 ### Using multiple GPUs
 
-一脸懵逼
+请赐予我一个多GPU设备
 
 ```py
 # Creates a graph.
