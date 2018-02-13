@@ -131,6 +131,8 @@ print(sess.run(loss, {x: [1, 2, 3, 4], y: [0, -1, -2, -3]})) # 0.0
 
 如何用Tensorboard可视化计算图？有待学习
 
+参考 https://www.jianshu.com/p/bce3e572bf47
+
 ## tf.train API
 
 train linear model
