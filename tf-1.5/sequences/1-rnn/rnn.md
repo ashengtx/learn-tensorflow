@@ -1,18 +1,27 @@
-## [Recurrent Neural Networks](https://www.tensorflow.org/tutorials/recurrent)
+# [Recurrent Neural Networks](https://www.tensorflow.org/tutorials/recurrent)
+
+## Introduction
 
 了解rnn和LSTMs，详见[Understanding LSTM Networks](https://colah.github.io/posts/2015-08-Understanding-LSTMs/)
+[中文解读](http://www.bijishequ.com/detail/204848)
 
-### Language Modeling 语言建模
+## Language Modeling 语言建模
 
-复现这篇论文[Recurrent Neural Network Regularization, Zaremba et al., 2014](https://arxiv.org/pdf/1409.2329.pdf)
+这个教程打算用RNN训练一个语言模型，而这个语言模型做的事情就是根据一句话的前几个词预测下一个词。
 
-### Data
+语言建模是许多其他任务的基础，如语音识别，机器翻译，图像描述（image captioning）
+
+一篇有趣的博客[The Unreasonable Effectiveness of Recurrent Neural Networks](https://karpathy.github.io/2015/05/21/rnn-effectiveness/)
+
+这个教程复现了这篇论文[Recurrent Neural Network Regularization, Zaremba et al., 2014](https://arxiv.org/pdf/1409.2329.pdf)
+
+## Data
 
 [PTB dataset](http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz)
 
-### The Model
+## The Model
 
-#### LSTM
+### LSTM
 
 The memory state of the network is initialized with a vector of zeros and gets updated after reading each word.
 网络的记忆状态初始化为一个全零向量，读入每个词之后再更新
@@ -32,10 +41,22 @@ words_in_dataset[4] = [quick, high]
 batch_size = 2, time_steps = 5
 ```
 
-#### Truncated Backpropagation
+以这个例子来看，假设每个词的向量大小是300，那么每个时刻输入的就是(2, 300)的矩阵，也就是(batch_size, embed_size)
 
+### Truncated Backpropagation
 
+传统RNN的输出依赖于任意时刻的输入，但是如果序列太长，会导致梯度消失或者梯度爆炸。常见的做法是取固定长度的时刻，然后训练这个有限长度的近似的RNN.
 
+### Inputs
+
+The word IDs will be embedded into a dense representation (see the Vector Representations Tutorial) before feeding to the LSTM. This allows the model to efficiently represent the knowledge about particular words. It is also easy to write:
+```
+# embedding_matrix is a tensor of shape [vocabulary_size, embedding size]
+word_embeddings = tf.nn.embedding_lookup(embedding_matrix, word_ids)
+```
+The embedding matrix will be initialized randomly and the model will learn to differentiate the meaning of words just by looking at the data.
+
+这里说`embedding_matrix`是随机初始化的，那就有个疑问？在训练的过程中，这个`embedding_matrix`是如何变化的
 
 --------------------------------------
 
@@ -327,6 +348,141 @@ with tf.Graph().as_default():
     while not sv.should_stop():
       sess.run(<my_train_op>)
 ```
+
+模型有小、中、大三个配置，
+max_epoch分别是4、6、14
+max_max_epoch分别是13、39、55，
+learning_rate初始值都是1.0
+lr_decay分别是0.5、0.8、1/1.15(0.87)
+num_steps 分别是20,35,35
+
+num_steps可以理解为用前`num_steps`个词预测下一个词
+
+
+在训练过程中，learning_rate随着epoch衰减（原理???忘了）
+```py
+for i in range(config.max_max_epoch):
+   lr_decay = config.lr_decay ** max(i + 1 - config.max_epoch, 0.0)
+   print(lr_decay)
+```
+
+小模型
+```
+1.0
+1.0
+1.0
+1.0
+0.5
+0.25
+0.125
+0.0625
+0.03125
+0.015625
+0.0078125
+0.00390625
+0.001953125
+```
+
+中
+```
+1.0
+1.0
+1.0
+1.0
+1.0
+1.0
+0.5
+0.25
+0.125
+0.0625
+0.03125
+0.015625
+0.0078125
+0.00390625
+0.001953125
+0.0009765625
+0.00048828125
+0.000244140625
+...
+```
+
+大
+```
+1.0
+1.0
+1.0
+1.0
+1.0
+1.0
+1.0
+1.0
+1.0
+1.0
+1.0
+1.0
+1.0
+1.0
+0.5
+0.25
+0.125
+0.0625
+0.03125
+0.015625
+0.0078125
+0.00390625
+0.001953125
+0.0009765625
+0.00048828125
+0.000244140625
+0.0001220703125
+...
+```
+
+接下来就是具体每一个epoch的训练，一个epoch就是过一遍所有的训练数据，一个epoch之后返回一个困惑度（perplexity），这个值等于 $ e^{-loss} $
+
+```py
+train_perplexity = run_epoch(session, m, eval_op=m.train_op,
+                                     verbose=True)
+```
+
+在看`run_epoch`之前，需要先把`m(PTBModel)`给弄懂，这是核心部分。
+
+```py
+class PTBModel(object):
+  """The PTB model."""
+
+  def __init__(self, is_training, config, input_):
+    self._is_training = is_training
+    self._input = input_
+    self._rnn_params = None
+    self._cell = None
+    self.batch_size = input_.batch_size
+    self.num_steps = input_.num_steps
+    size = config.hidden_size
+    vocab_size = config.vocab_size
+```
+
+`PTBModel`初始化的时候输入一个`input_`，这个在train,valid,test阶段分别是training_input,valid_input,test_input
+
+而这个`input`是`PTBInput`返回的结果
+```py
+class PTBInput(object):
+  """The input data."""
+
+  def __init__(self, config, data, name=None):
+    self.batch_size = batch_size = config.batch_size
+    self.num_steps = num_steps = config.num_steps
+    self.epoch_size = ((len(data) // batch_size) - 1) // num_steps
+    self.input_data, self.targets = reader.ptb_producer(
+        data, batch_size, num_steps, name=name)
+```
+
+-----------------------------------
+
+## 总结
+
+这个基于PTB语料库的Language model，其实就做了一件事情，根据前几个词，预测下一个词。
+
 
 
 
