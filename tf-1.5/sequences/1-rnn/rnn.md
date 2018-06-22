@@ -477,6 +477,11 @@ class PTBInput(object):
         data, batch_size, num_steps, name=name)
 ```
 
+input_data, shape: [batch_size, num_steps]
+targets, shape: [batch_size, num_steps]
+
+每个input_word对应一个target_word，因此shape相同
+
 -----------------------------------
 
 ## 总结

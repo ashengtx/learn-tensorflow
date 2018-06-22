@@ -122,7 +122,8 @@ class PTBModel(object):
     self.num_steps = input_.num_steps
     size = config.hidden_size
     vocab_size = config.vocab_size
-
+    # print("============input data shape=========")
+    # print(input_.input_data.shape)
     with tf.device("/cpu:0"):
       embedding = tf.get_variable(
           "embedding", [vocab_size, size], dtype=data_type())
@@ -132,7 +133,9 @@ class PTBModel(object):
       inputs = tf.nn.dropout(inputs, config.keep_prob)
 
     output, state = self._build_rnn_graph(inputs, config, is_training)
-
+    # print("============output shape=========")
+    # print(output.shape)
+    # quit()
     softmax_w = tf.get_variable(
         "softmax_w", [size, vocab_size], dtype=data_type())
     softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
@@ -324,12 +327,12 @@ class SmallConfig(object):
   max_grad_norm = 5
   num_layers = 2
   num_steps = 20
-  hidden_size = 200
+  hidden_size = 128
   max_epoch = 4
-  max_max_epoch = 13
+  max_max_epoch = 3#13
   keep_prob = 1.0
   lr_decay = 0.5
-  batch_size = 20
+  batch_size = 4
   vocab_size = 10000
   rnn_mode = BLOCK
 

@@ -165,7 +165,7 @@ python -m nmt.nmt \
 
 Decoding methods include greedy, sampling, and beam-search decoding. Here, we will discuss the greedy decoding strategy.
 
-```
+```py
 # Helper
 helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
     embedding_decoder,
